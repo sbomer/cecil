@@ -1060,6 +1060,11 @@ namespace Mono.Cecil {
 			var provider = new DefaultSymbolReaderProvider (throwIfNoSymbol: true);
 			ReadSymbols (provider.GetSymbolReader (this, file_name));
 		}
+#else
+		/* TODO figure out how this should behave on .NET Core */
+		public void ReadSymbols()
+		{
+		}
 #endif
 
 		public void ReadSymbols (ISymbolReader reader)

@@ -8,9 +8,10 @@
 // Licensed under the MIT/X11 license.
 //
 
-#if !PCL && !NET_CORE
+#if !PCL
 
 using System;
+using System.Reflection;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -35,7 +36,9 @@ namespace Mono.Cecil {
 		}
 	}
 
+#if !NET_CORE
 	[Serializable]
+#endif
 	public sealed class AssemblyResolutionException : FileNotFoundException {
 
 		readonly AssemblyNameReference reference;
@@ -50,12 +53,14 @@ namespace Mono.Cecil {
 			this.reference = reference;
 		}
 
+#if !NET_CORE
 		AssemblyResolutionException (
 			System.Runtime.Serialization.SerializationInfo info,
 			System.Runtime.Serialization.StreamingContext context)
 			: base (info, context)
 		{
 		}
+#endif
 	}
 
 	public abstract class BaseAssemblyResolver : IAssemblyResolver {
@@ -64,7 +69,9 @@ namespace Mono.Cecil {
 
 		readonly Collection<string> directories;
 
+#if !NET_CORE
 		Collection<string> gac_paths;
+#endif
 
 		public void AddSearchDirectory (string directory)
 		{
@@ -119,7 +126,7 @@ namespace Mono.Cecil {
 				};
 			}
 
-			var framework_dir = Path.GetDirectoryName (typeof (object).Module.FullyQualifiedName);
+			var framework_dir = Path.GetDirectoryName (typeof (object).GetTypeInfo().Module.FullyQualifiedName);
 
 			if (IsZero (name.Version)) {
 				assembly = SearchDirectory (name, new [] { framework_dir }, parameters);
@@ -127,6 +134,7 @@ namespace Mono.Cecil {
 					return assembly;
 			}
 
+#if !NET_CORE
 			if (name.Name == "mscorlib") {
 				assembly = GetCorlib (name, parameters);
 				if (assembly != null)
@@ -136,6 +144,7 @@ namespace Mono.Cecil {
 			assembly = GetAssemblyInGac (name, parameters);
 			if (assembly != null)
 				return assembly;
+#endif
 
 			assembly = SearchDirectory (name, new [] { framework_dir }, parameters);
 			if (assembly != null)
@@ -174,6 +183,7 @@ namespace Mono.Cecil {
 			return version.Major == 0 && version.Minor == 0 && version.Build == 0 && version.Revision == 0;
 		}
 
+#if !NET_CORE
 		AssemblyDefinition GetCorlib (AssemblyNameReference reference, ReaderParameters parameters)
 		{
 			var version = reference.Version;
@@ -331,6 +341,7 @@ namespace Mono.Cecil {
 				reference.Name + ".dll");
 		}
 
+#endif
 		public void Dispose ()
 		{
 			Dispose (true);
