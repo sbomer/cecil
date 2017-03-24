@@ -37,10 +37,10 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <DefineConstants>$(DefineConstants);NET_4_0;</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition=" $(Configuration.StartsWith('netstandard')) ">
+  <PropertyGroup Condition=" $(Configuration.StartsWith('netstandard')) Or '$(NuGetRestoreTargets)' != '' ">
     <TargetFramework>netstandard1.3</TargetFramework>
   </PropertyGroup>
-  <Import Project="NetStandard.props"  Condition=" $(Configuration.StartsWith('netstandard')) " />
+  <Import Project="NetStandard.props"  Condition=" $(Configuration.StartsWith('netstandard')) Or '$(NuGetRestoreTargets)' != '' " />
   <PropertyGroup Condition=" $(Configuration.StartsWith('pcl')) ">
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TargetFrameworkProfile>Profile344</TargetFrameworkProfile>
@@ -49,7 +49,7 @@
     <MSBuildCSharpTargets>$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets</MSBuildCSharpTargets>
   </PropertyGroup>
   <!-- Shared References -->
-  <ItemGroup Condition=" ! $(Configuration.StartsWith('netstandard')) ">
+  <ItemGroup Condition=" ! $(Configuration.StartsWith('netstandard')) And '$(NuGetRestoreTargets)' == '' ">
     <Reference Include="System.Core" />
     <Reference Include="System" />
   </ItemGroup>
