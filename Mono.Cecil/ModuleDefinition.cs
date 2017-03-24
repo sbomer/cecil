@@ -33,13 +33,15 @@ namespace Mono.Cecil {
 		internal IMetadataResolver metadata_resolver;
 #if !READ_ONLY
 		internal IMetadataImporterProvider metadata_importer_provider;
-#if !PCL && !NET_CORE
+#if !PCL
 		internal IReflectionImporterProvider reflection_importer_provider;
 #endif
 #endif
 		Stream symbol_stream;
 		ISymbolReaderProvider symbol_reader_provider;
+#if !PCL
 		bool read_symbols;
+#endif
 		bool projections;
 		bool in_memory;
 		bool read_write;
@@ -70,7 +72,7 @@ namespace Mono.Cecil {
 			set { metadata_importer_provider = value; }
 		}
 
-#if !PCL && !NET_CORE
+#if !PCL
 		public IReflectionImporterProvider ReflectionImporterProvider {
 			get { return reflection_importer_provider; }
 			set { reflection_importer_provider = value; }
@@ -122,12 +124,13 @@ namespace Mono.Cecil {
 
 		ModuleKind kind;
 		TargetRuntime runtime;
+		uint? timestamp;
 		TargetArchitecture architecture;
 		IAssemblyResolver assembly_resolver;
 		IMetadataResolver metadata_resolver;
 #if !READ_ONLY
 		IMetadataImporterProvider metadata_importer_provider;
-#if !PCL && !NET_CORE
+#if !PCL
 		IReflectionImporterProvider reflection_importer_provider;
 #endif
 #endif
@@ -140,6 +143,11 @@ namespace Mono.Cecil {
 		public TargetRuntime Runtime {
 			get { return runtime; }
 			set { runtime = value; }
+		}
+
+		public uint? Timestamp {
+			get { return timestamp; }
+			set { timestamp = value; }
 		}
 
 		public TargetArchitecture Architecture {
@@ -163,7 +171,7 @@ namespace Mono.Cecil {
 			set { metadata_importer_provider = value; }
 		}
 
-#if !PCL && !NET_CORE
+#if !PCL
 		public IReflectionImporterProvider ReflectionImporterProvider {
 			get { return reflection_importer_provider; }
 			set { reflection_importer_provider = value; }
@@ -183,7 +191,7 @@ namespace Mono.Cecil {
 #if !PCL && !NET_CORE
 			return typeof (object).Assembly.ImageRuntimeVersion.ParseRuntime ();
 #else
-			var corlib_name = AssemblyNameReference.Parse (typeof (object).GetAssembly ().FullName);
+			var corlib_name = AssemblyNameReference.Parse (typeof (object).Assembly ().FullName);
 			var corlib_version = corlib_name.Version;
 
 			switch (corlib_version.Major) {
@@ -202,14 +210,39 @@ namespace Mono.Cecil {
 		}
 	}
 
+	interface ICustomMetadataWriter
+	{
+		/*
+		 * Remap TypeReference or create custom TypeRef token.
+		 *
+		 * Return true to use the returned custom 'token'.
+		 *
+		 * Return false to create a TypeRef token for 'type'
+		 * (which may have been replaced with a different TypeReference).
+		 * 
+		 * This is necessary when types are moved from one assembly to another
+		 * to either adjust the scope or replace a TypeRef with a TypeDef token.
+		 */
+		bool CreateTypeRefToken (ref TypeReference type, out MetadataToken token);
+	}
+
 	public sealed class WriterParameters {
 
+		uint? timestamp;
 		Stream symbol_stream;
 		ISymbolWriterProvider symbol_writer_provider;
+#if !PCL
 		bool write_symbols;
+#endif
 #if !PCL && !NET_CORE
 		SR.StrongNameKeyPair key_pair;
 #endif
+
+		public uint? Timestamp {
+			get { return timestamp; }
+			set { timestamp = value; }
+		}
+
 		public Stream SymbolStream {
 			get { return symbol_stream; }
 			set { symbol_stream = value; }
@@ -260,15 +293,17 @@ namespace Mono.Cecil {
 		ModuleAttributes attributes;
 		ModuleCharacteristics characteristics;
 		Guid mvid;
+		internal uint timestamp;
 
 		internal AssemblyDefinition assembly;
 		MethodDefinition entry_point;
 
 #if !READ_ONLY
-#if !PCL && !NET_CORE
+#if !PCL
 		internal IReflectionImporter reflection_importer;
 #endif
 		internal IMetadataImporter metadata_importer;
+		ICustomMetadataWriter custom_writer;
 #endif
 		Collection<CustomAttribute> custom_attributes;
 		Collection<AssemblyNameReference> references;
@@ -366,7 +401,7 @@ namespace Mono.Cecil {
 		}
 
 #if !READ_ONLY
-#if !PCL && !NET_CORE
+#if !PCL
 		internal IReflectionImporter ReflectionImporter {
 			get {
 				if (reflection_importer == null)
@@ -383,6 +418,18 @@ namespace Mono.Cecil {
 
 				return metadata_importer;
 			}
+		}
+
+		internal void SetMetadataImporter (MetadataImporter importer)
+		{
+			if (this.metadata_importer != null)
+				throw new InvalidOperationException ();
+			this.metadata_importer = importer;
+		}
+
+		internal ICustomMetadataWriter CustomMetadataWriter {
+			get { return custom_writer; }
+			set { custom_writer = value; }
 		}
 #endif
 
@@ -568,6 +615,7 @@ namespace Mono.Cecil {
 			this.attributes = image.Attributes;
 			this.characteristics = image.Characteristics;
 			this.file_name = image.FileName;
+			this.timestamp = image.Timestamp;
 
 			this.reader = new MetadataReader (this);
 		}
@@ -747,12 +795,7 @@ namespace Mono.Cecil {
 				throw new ArgumentException ();
 		}
 
-		static ImportGenericContext GenericContextFor (IGenericParameterProvider context)
-		{
-			return context != null ? new ImportGenericContext (context) : default (ImportGenericContext);
-		}
-
-#if !PCL && !NET_CORE
+#if !PCL
 
 		[Obsolete ("Use ImportReference", error: false)]
 		public TypeReference Import (Type type)
@@ -969,15 +1012,15 @@ namespace Mono.Cecil {
 		}
 
 		public bool HasDebugHeader {
-			get { return Image != null && !Image.Debug.IsZero; }
+			get { return Image != null && Image.DebugHeader != null; }
 		}
 
-		public ImageDebugDirectory GetDebugHeader (out byte [] header)
+		public ImageDebugHeader GetDebugHeader ()
 		{
 			if (!HasDebugHeader)
 				throw new InvalidOperationException ();
 
-			return Image.GetDebugHeader (out header);
+			return Image.DebugHeader;
 		}
 
 		void ProcessDebugHeader ()
@@ -985,10 +1028,7 @@ namespace Mono.Cecil {
 			if (!HasDebugHeader)
 				return;
 
-			byte [] header;
-			var directory = GetDebugHeader (out header);
-
-			if (!symbol_reader.ProcessDebugHeader (directory, header))
+			if (!symbol_reader.ProcessDebugHeader (GetDebugHeader ()))
 				throw new InvalidOperationException ();
 		}
 
@@ -1007,6 +1047,7 @@ namespace Mono.Cecil {
 			var module = new ModuleDefinition {
 				Name = name,
 				kind = parameters.Kind,
+				timestamp = parameters.Timestamp ?? Mixin.GetTimestamp (),
 				Runtime = parameters.Runtime,
 				architecture = parameters.Architecture,
 				mvid = Guid.NewGuid (),
@@ -1023,7 +1064,7 @@ namespace Mono.Cecil {
 #if !READ_ONLY
 			if (parameters.MetadataImporterProvider != null)
 				module.metadata_importer = parameters.MetadataImporterProvider.GetMetadataImporter (module);
-#if !PCL && !NET_CORE
+#if !PCL
 			if (parameters.ReflectionImporterProvider != null)
 				module.reflection_importer = parameters.ReflectionImporterProvider.GetReflectionImporter (module);
 #endif
@@ -1051,7 +1092,7 @@ namespace Mono.Cecil {
 
 #endif
 
-#if !PCL && !NET_CORE
+#if !PCL
 		public void ReadSymbols ()
 		{
 			if (string.IsNullOrEmpty (file_name))
@@ -1145,7 +1186,7 @@ namespace Mono.Cecil {
 		public void Write (string fileName, WriterParameters parameters)
 		{
 			Mixin.CheckParameters (parameters);
-			var file = GetFileStream (fileName, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+			var file = GetFileStream (fileName, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
 			ModuleWriter.WriteModuleTo (this, Disposable.Owned (file), parameters);
 		}
 #endif
@@ -1280,25 +1321,14 @@ namespace Mono.Cecil {
 				throw new ArgumentNullException (Argument.parameters.ToString ());
 		}
 
+		public static uint GetTimestamp ()
+		{
+			return (uint) DateTime.UtcNow.Subtract (new DateTime (1970, 1, 1)).TotalSeconds;
+		}
+
 		public static bool HasImage (this ModuleDefinition self)
 		{
 			return self != null && self.HasImage;
-		}
-
-		public static bool IsCoreLibrary (this ModuleDefinition module)
-		{
-			if (module.Assembly == null)
-				return false;
-
-			var assembly_name = module.Assembly.Name.Name;
-
-			if (assembly_name != "mscorlib" && assembly_name != "System.Runtime")
-				return false;
-
-			if (module.HasImage && module.Read (module, (m, reader) => reader.image.GetTableLength (Table.AssemblyRef) > 0))
-				return false;
-
-			return true;
 		}
 
 		public static string GetFileName (this Stream self)

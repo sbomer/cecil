@@ -104,7 +104,9 @@ namespace Mono.Cecil {
 			}
 #endif
 
-			var metadata = new MetadataBuilder (module, fq_name, symbol_writer_provider, symbol_writer);
+			var timestamp = parameters.Timestamp ?? module.timestamp;
+
+			var metadata = new MetadataBuilder (module, fq_name, timestamp, symbol_writer_provider, symbol_writer);
 
 			BuildMetadata (module, metadata);
 
@@ -796,7 +798,7 @@ namespace Mono.Cecil {
 		readonly internal ISymbolWriter symbol_writer;
 		readonly internal TextMap text_map;
 		readonly internal string fq_name;
-		readonly internal uint time_stamp;
+		readonly internal uint timestamp;
 
 		readonly Dictionary<TypeRefRow, MetadataToken> type_ref_map;
 		readonly Dictionary<uint, MetadataToken> type_spec_map;
@@ -859,14 +861,12 @@ namespace Mono.Cecil {
 		readonly Dictionary<ImportScopeRow, MetadataToken> import_scope_map;
 		readonly Dictionary<string, MetadataToken> document_map;
 
-		readonly internal bool write_symbols;
-
-		public MetadataBuilder (ModuleDefinition module, string fq_name, ISymbolWriterProvider symbol_writer_provider, ISymbolWriter symbol_writer)
+		public MetadataBuilder (ModuleDefinition module, string fq_name, uint timestamp, ISymbolWriterProvider symbol_writer_provider, ISymbolWriter symbol_writer)
 		{
 			this.module = module;
 			this.text_map = CreateTextMap ();
 			this.fq_name = fq_name;
-			this.time_stamp = (uint) DateTime.UtcNow.Subtract (new DateTime (1970, 1, 1)).TotalSeconds;
+			this.timestamp = timestamp;
 			this.symbol_writer_provider = symbol_writer_provider;
 
 			if (symbol_writer == null && module.HasImage && module.Image.HasDebugTables ()) {
@@ -874,12 +874,11 @@ namespace Mono.Cecil {
 			}
 
 			this.symbol_writer = symbol_writer;
-			this.write_symbols = symbol_writer != null;
 
-			var pdb_writer = symbol_writer as PortablePdbWriter;
+			var pdb_writer = symbol_writer as IMetadataSymbolWriter;
 			if (pdb_writer != null) {
 				portable_pdb = true;
-				pdb_writer.SetModuleMetadata (this);
+				pdb_writer.SetMetadata (this);
 			}
 
 			this.code = new CodeWriter (this);
@@ -1353,6 +1352,12 @@ namespace Mono.Cecil {
 
 		MetadataToken GetTypeRefToken (TypeReference type)
 		{
+			MetadataToken ctoken;
+			if (module.CustomMetadataWriter != null) {
+				if (module.CustomMetadataWriter.CreateTypeRefToken (ref type, out ctoken))
+					return ctoken;
+			}
+
 			var projection = WindowsRuntimeProjections.RemoveProjection (type);
 
 			var row = CreateTypeRefRow (type);
@@ -2053,6 +2058,11 @@ namespace Mono.Cecil {
 			return GetBlobIndex (GetMethodSignature (call_site));
 		}
 
+		public uint GetConstantTypeBlobIndex (TypeReference constant_type)
+		{
+			return GetBlobIndex (GetConstantTypeSignature (constant_type));
+		}
+
 		SignatureWriter GetVariablesSignature (Collection<VariableDefinition> variables)
 		{
 			var signature = CreateSignatureWriter ();
@@ -2060,6 +2070,14 @@ namespace Mono.Cecil {
 			signature.WriteCompressedUInt32 ((uint) variables.Count);
 			for (int i = 0; i < variables.Count; i++)
 				signature.WriteTypeSignature (variables [i].VariableType);
+			return signature;
+		}
+
+		SignatureWriter GetConstantTypeSignature (TypeReference constant_type)
+		{
+			var signature = CreateSignatureWriter ();
+			signature.WriteByte (0x6);
+			signature.WriteTypeSignature (constant_type);
 			return signature;
 		}
 
