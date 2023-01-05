@@ -43,6 +43,11 @@ namespace Mono.Cecil.PE {
 
 		readonly Range [] map = new Range [17 /*Enum.GetValues (typeof (TextSegment)).Length*/];
 
+		void Check ()
+		{
+			
+		}
+
 		public void AddMap (TextSegment segment, int length)
 		{
 			map [(int) segment] = new Range (GetStart (segment), (uint) length);
@@ -65,6 +70,7 @@ namespace Mono.Cecil.PE {
 				Range previous = map [index];
 				start = AlignUp (previous.Start + previous.Length, (uint) align);
 				map [index].Length = start - previous.Start;
+				Debug.Assert (map[index].Length == start - map[index].Start);
 			} else {
 				start = ImageWriter.text_rva;
 				// Should already be aligned.

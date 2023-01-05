@@ -726,6 +726,7 @@ namespace Mono.Cecil.PE {
 			}
 
 			map.AddMap (TextSegment.DebugDirectory, debug_dir_len, 4);
+			System.Diagnostics.Debug.Assert (debug_dir_len % 4 == 0);
 
 			if (!has_reloc) {
 				var start = map.GetNextRVA (TextSegment.DebugDirectory);
@@ -736,7 +737,11 @@ namespace Mono.Cecil.PE {
 			}
 
 			RVA import_dir_rva = map.GetNextRVA (TextSegment.DebugDirectory);
+			System.Diagnostics.Debug.Assert (import_dir_rva % 4 == 0);
+
+			
 			RVA import_hnt_rva = import_dir_rva + 48u;
+			// AlignUp to 16
 			import_hnt_rva = (import_hnt_rva + 15u) & ~15u;
 			uint import_dir_len = (import_hnt_rva - import_dir_rva) + 27u;
 
