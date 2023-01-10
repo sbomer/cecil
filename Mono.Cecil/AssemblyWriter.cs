@@ -991,7 +991,7 @@ namespace Mono.Cecil {
 			// Alignment of the code segment must be set before the code is written
 			// These alignment values are probably not necessary, but are being left in
 			// for now in case something requires them.
-			map.AddMap (TextSegment.Code, 0, !pe64 ? 4 : 16);
+			// map.AddMap (TextSegment.Code, 0, !pe64 ? 4 : 16);
 			return map;
 		}
 
