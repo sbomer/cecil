@@ -114,6 +114,7 @@ namespace Mono.Cecil.Cil {
 
 		public Document (string url)
 		{
+			System.Console.WriteLine("Document");
 			this.url = url;
 			this.hash = Empty<byte>.Array;
 			this.embedded_source = Empty<byte>.Array;

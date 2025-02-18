@@ -1110,7 +1110,7 @@ namespace Mono.Cecil.Cil {
 			throw new ArgumentException ();
 		}
 	}
-
+ 
 	public interface ISymbolWriter : IDisposable {
 
 		ISymbolReaderProvider GetReaderProvider ();

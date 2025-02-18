@@ -30,6 +30,7 @@ namespace Mono.Cecil {
 		protected ModuleReader (Image image, ReadingMode mode)
 		{
 			this.module = new ModuleDefinition (image);
+			Console.WriteLine("New ModuleReader, metadatasystem document length: " + module.MetadataSystem?.Documents?.Length);
 			this.module.ReadingMode = mode;
 		}
 
@@ -394,6 +395,9 @@ namespace Mono.Cecil {
 
 		public override void ReadSymbols (ModuleDefinition module)
 		{
+			// ReadSymobls. Maybe here?
+			// In ModuleReader.
+			// But then go to symbol reader.
 			if (module.symbol_reader == null)
 				return;
 
@@ -404,7 +408,7 @@ namespace Mono.Cecil {
 		{
 			for (int i = 0; i < types.Count; i++) {
 				var type = types [i];
-				type.custom_infos = symbol_reader.Read (type);
+				type.custom_infos = symbol_reader.Read (type); // here
 
 				if (type.HasNestedTypes)
 					ReadTypesSymbols (type.NestedTypes, symbol_reader);
@@ -420,8 +424,10 @@ namespace Mono.Cecil {
 			for (int i = 0; i < methods.Count; i++) {
 				var method = methods [i];
 
-				if (method.HasBody && method.token.RID != 0 && method.debug_info == null)
+				if (method.HasBody && method.token.RID != 0 && method.debug_info == null) {
+					Console.WriteLine("ReadMethodSymbols");
 					method.debug_info = symbol_reader.Read (method);
+				}
 			}
 		}
 	}
@@ -2811,6 +2817,7 @@ namespace Mono.Cecil {
 		{
 			if (metadata.Documents != null)
 				return;
+			Console.WriteLine("InitializeDocuments");
 
 			int length = MoveTo (Table.Document);
 
@@ -2834,10 +2841,14 @@ namespace Mono.Cecil {
 			}
 		}
 
-		public Collection<SequencePoint> ReadSequencePoints (MethodDefinition method)
+		public Collection<Document> GetDocuments ()
 		{
 			InitializeDocuments ();
+			return new Collection<Document> (metadata.Documents);
+		}
 
+		public Collection<SequencePoint> ReadSequencePoints (MethodDefinition method)
+		{
 			if (!MoveTo (Table.MethodDebugInformation, method.MetadataToken.RID))
 				return new Collection<SequencePoint> (0);
 

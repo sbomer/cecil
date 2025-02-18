@@ -89,7 +89,8 @@ namespace Mono.Cecil {
 				immediate_reader.ReadSymbols (module);
 			}
 
-			module.MetadataSystem.Clear ();
+			Console.WriteLine("ModuleWriter.Write, module.MetadtaaSystem.Documents.Length: " + module.MetadataSystem.Documents.Length);
+			module.MetadataSystem.Clear (); // This gets rid of the Documents.
 
 			if (module.symbol_reader != null)
 				module.symbol_reader.Dispose ();
@@ -110,6 +111,7 @@ namespace Mono.Cecil {
 			if (parameters.DeterministicMvid)
 				module.Mvid = Guid.Empty;
 
+			Console.WriteLine("ModuleWriter.Write, module.MetadtaaSystem.Documents.Length: " + module.MetadataSystem.Documents.Length);
 			var metadata = new MetadataBuilder (module, fq_name, timestamp, symbol_writer_provider);
 			try {
 				module.metadata_builder = metadata;
@@ -138,6 +140,7 @@ namespace Mono.Cecil {
 
 		static void BuildMetadata (ModuleDefinition module, MetadataBuilder metadata)
 		{
+			Console.WriteLine("BuildMetadata(2) metadata builder is " + metadata);
 			if (!module.HasImage) {
 				metadata.BuildMetadata ();
 				return;
@@ -726,6 +729,7 @@ namespace Mono.Cecil {
 
 		public override void Write (TableHeapBuffer buffer)
 		{
+			Console.WriteLine("Writing DocumentTable");
 			for (int i = 0; i < length; i++) {
 				buffer.WriteBlob (rows [i].Col1);	// Name
 				buffer.WriteGuid (rows [i].Col2);	// HashAlgorithm
@@ -893,6 +897,8 @@ namespace Mono.Cecil {
 
 		public MetadataBuilder (ModuleDefinition module, string fq_name, uint timestamp, ISymbolWriterProvider symbol_writer_provider)
 		{
+			Console.WriteLine("MetadataBuilder 1");
+			Console.WriteLine("metadata system document count: " + module.MetadataSystem.Documents.Length);
 			this.module = module;
 			this.text_map = CreateTextMap ();
 			this.fq_name = fq_name;
@@ -948,6 +954,8 @@ namespace Mono.Cecil {
 
 		public MetadataBuilder (ModuleDefinition module, PortablePdbWriterProvider writer_provider)
 		{
+			Console.WriteLine("MetadataBuilder 2");
+			Console.WriteLine("metadata system document count: " + module.MetadataSystem.Documents.Length);
 			this.module = module;
 			this.text_map = new TextMap ();
 			this.symbol_writer_provider = writer_provider;
@@ -1040,6 +1048,7 @@ namespace Mono.Cecil {
 
 		void BuildModule ()
 		{
+			Console.WriteLine("BuildModule. metadata builder is : " + metadata_builder);
 			var table = GetTable<ModuleTable> (Table.Module);
 			table.row.Col1 = GetStringIndex (module.Name);
 			table.row.Col2 = GetGuidIndex (module.Mvid);
@@ -1076,6 +1085,13 @@ namespace Mono.Cecil {
 
 			if (module.EntryPoint != null)
 				entry_point = LookupToken (module.EntryPoint);
+
+			Console.WriteLine("Adding documents...");
+
+			// Can't get Documents from MetadataSystem, that was cleared. Need to get them from the Module, I guess...
+			// How does the other debug info flow?
+			if (module.HasDocuments)
+				AddDocuments (module);
 		}
 
 		void BuildAssembly ()
@@ -2019,6 +2035,18 @@ namespace Mono.Cecil {
 			}
 		}
 
+		void AddDocuments (ModuleDefinition module)
+		{
+			var documents = module.Documents;
+			Console.WriteLine("AddDocuments, count is " + documents.Count);
+			for (int i = 0; i < documents.Count; i++) {
+				var document = documents[i];
+				Console.WriteLine("doc i : " + i + " doc name : " + document);
+				Console.WriteLine("metadata_builder: " + metadata_builder);
+				module.metadata_builder.GetDocumentToken (documents[i]);
+			}
+		}
+
 		MetadataToken GetMemberRefToken (MemberReference member)
 		{
 			var row = CreateMemberRefRow (member);
@@ -2603,6 +2631,7 @@ namespace Mono.Cecil {
 			if (document_map.TryGetValue (document.Url, out token))
 				return token;
 
+			Console.WriteLine("Adding document table row");
 			token = new MetadataToken (TokenType.Document, document_table.AddRow (
 				new DocumentRow (GetBlobIndex (GetDocumentNameSignature (document)),
 				GetGuidIndex (document.HashAlgorithm.ToGuid ()),

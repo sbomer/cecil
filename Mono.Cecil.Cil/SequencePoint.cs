@@ -57,6 +57,7 @@ namespace Mono.Cecil.Cil {
 
 		internal SequencePoint (int offset, Document document)
 		{
+			Console.WriteLine("new SequencePoint 1");
 			if (document == null)
 				throw new ArgumentNullException ("document");
 
@@ -66,6 +67,7 @@ namespace Mono.Cecil.Cil {
 
 		public SequencePoint (Instruction instruction, Document document)
 		{
+			Console.WriteLine("new SequencePoint 2");
 			if (document == null)
 				throw new ArgumentNullException ("document");
 

@@ -55,6 +55,7 @@ namespace Mono.Cecil.Cil {
 
 		internal PortablePdbReader (Image image, ModuleDefinition module)
 		{
+			Console.WriteLine("PortablePdbReader");
 			this.image = image;
 			this.module = module;
 			this.reader = module.reader;
@@ -119,10 +120,13 @@ namespace Mono.Cecil.Cil {
 		void ReadModule ()
 		{
 			module.custom_infos = debug_reader.GetCustomDebugInformation (module);
+			System.Console.WriteLine("----- ReadModule -> GetDocuments");
+			module.documents = debug_reader.GetDocuments ();
 		}
 
 		public MethodDebugInformation Read (MethodDefinition method)
 		{
+			Console.WriteLine("Reading method debug info");
 			var info = new MethodDebugInformation (method);
 			ReadSequencePoints (info);
 			ReadScope (info);
@@ -262,6 +266,7 @@ namespace Mono.Cecil.Cil {
 
 		ISymbolWriter GetSymbolWriter (ModuleDefinition module, Disposable<Stream> stream, Disposable<Stream> final_stream)
 		{
+			Console.WriteLine("GetSymbolWriter, module.MetadtaaSystem.Documents.Length: " + module.MetadataSystem.Documents.Length);
 			var metadata = new MetadataBuilder (module, this);
 			var writer = ImageWriter.CreateDebugWriter (module, metadata, stream);
 
@@ -286,6 +291,7 @@ namespace Mono.Cecil.Cil {
 
 		internal PortablePdbWriter (MetadataBuilder pdb_metadata, ModuleDefinition module)
 		{
+			Console.WriteLine("PortablePdbWriter");
 			this.pdb_metadata = pdb_metadata;
 			this.module = module;
 
@@ -294,6 +300,7 @@ namespace Mono.Cecil.Cil {
 			if (module_metadata != pdb_metadata)
 				this.pdb_metadata.metadata_builder = this.module_metadata;
 
+			// Module debug info gets populated here, through ICustomDebugInformationProvider.
 			pdb_metadata.AddCustomDebugInformations (module);
 		}
 
